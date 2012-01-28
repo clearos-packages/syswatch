@@ -1,6 +1,6 @@
 Name: syswatch
-Version: 5.9.9.2
-Release: 3%{dist}
+Version: 6.2.1
+Release: 1%{dist}
 Summary: Network and system monitor module
 License: GPL
 Group: System Environment/Daemons
@@ -63,3 +63,7 @@ rm -rf $RPM_BUILD_ROOT
 /etc/rc.d/init.d/syswatch
 /usr/sbin/syswatch
 /var/lib/syswatch
+
+%changelog
+* Fri Jan 27 2012 ClearFoundation <developer@clearfoundation.com> - 6.2.1-1
+- Started changelog
