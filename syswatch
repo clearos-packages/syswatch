@@ -1,4 +1,4 @@
-#!/usr/bin/perl -w
+#!/usr/bin/perl
 
 # Net::Ping has issues with -T when using "syn" ("icmp" is fine)
 
@@ -80,9 +80,6 @@ sub CheckNetworkConf();
 sub CheckNetworkBakFiles();
 sub CheckClamAv();
 sub CheckSecurityAudit();
-sub ManageSslCertificates();
-sub ResetSuvaDeviceName();
-sub RestartWebconfig();
 sub UpdateWhitelist();
 
 
@@ -95,7 +92,6 @@ sub UpdateWhitelist();
 my $DIR_IDS      = "/etc/snort";
 my $DIR_STATE    = "/var/lib/syswatch";
 my $DIR_SECAUD   = "/var/lib/suvlets/SecurityAudit/db";
-my $FILE_SUVA_OK = "/usr/share/system/modules/services/suva";
 my $FILE_PID     = "/var/run/syswatch.pid";
 my $FILE_LOG     = "/var/log/syswatch";
 my $FILE_CFG     = "/etc/syswatch";
@@ -115,7 +111,6 @@ my $CMD_MD5SUM   = "/usr/bin/md5sum";
 my $CMD_DYNDNS   = "/usr/sbin/dnsupdate";
 my $CMD_VPNUPDATE = "/usr/sbin/vpnupdate";
 my $CMD_TIMESYNC = "/usr/sbin/timesync";
-my $CMD_SETSUVA  = "/usr/sbin/setdevicename";
 my $CMD_WANUPDATE = "/usr/sbin/syswatch.local";
 my $STATE_ENABLED = "enabled";
 my $STATE_DISABLED = "disabled";
@@ -135,53 +130,6 @@ my $STATUS_CHANGED = 30;
 my $STATUS_UNCHANGED = 31;
 my $STATUS_NO = 40;
 my $STATUS_YES = 41;
-
-my %BASE_CERTS;
-$BASE_CERTS{'cert'} = "/etc/ssl/sys-0-cert.pem";
-$BASE_CERTS{'key'} = "/etc/ssl/private/sys-0-key.pem";
-$BASE_CERTS{'ca'} = "/etc/ssl/ca-cert.pem";
-$BASE_CERTS{'dh'} = "/etc/ssl/dh1024.pem";
-
-my %FILE_CERTS;
-$FILE_CERTS{'postfix'}->{'basedir'} = '/etc/postfix';
-$FILE_CERTS{'postfix'}->{'cert'} = '/etc/postfix/cert.pem';
-$FILE_CERTS{'postfix'}->{'key'} = '/etc/postfix/key.pem';
-$FILE_CERTS{'postfix'}->{'owner'} = 'root';
-$FILE_CERTS{'postfix'}->{'group'} = 'root';
-$FILE_CERTS{'postfix'}->{'perms'} = '0600';
-$FILE_CERTS{'postfix'}->{'daemon'} = 'postfix';
-$FILE_CERTS{'cyrus'}->{'basedir'} = '/etc/imapd.d';
-$FILE_CERTS{'cyrus'}->{'cert'} = '/etc/imapd.d/cert.pem';
-$FILE_CERTS{'cyrus'}->{'key'} = '/etc/imapd.d/key.pem';
-$FILE_CERTS{'cyrus'}->{'ca_config'} = '/etc/imapd.conf';
-$FILE_CERTS{'cyrus'}->{'ca_param'} = 'tls_ca_file';
-$FILE_CERTS{'cyrus'}->{'group'} = 'mail';
-$FILE_CERTS{'cyrus'}->{'owner'} = 'cyrus';
-$FILE_CERTS{'cyrus'}->{'perms'} = '0600';
-$FILE_CERTS{'cyrus'}->{'daemon'} = 'cyrus-imapd';
-$FILE_CERTS{'webconfig'}->{'basedir'} = '/usr/webconfig/conf';
-$FILE_CERTS{'webconfig'}->{'cert'} = '/usr/webconfig/conf/server.crt';
-$FILE_CERTS{'webconfig'}->{'key'} = '/usr/webconfig/conf/server.key';
-$FILE_CERTS{'webconfig'}->{'owner'} = 'webconfig';
-$FILE_CERTS{'webconfig'}->{'group'} = 'root';
-$FILE_CERTS{'webconfig'}->{'perms'} = '0600';
-$FILE_CERTS{'webconfig'}->{'daemon'} = 'webconfig';
-$FILE_CERTS{'cups'}->{'basedir'} = '/etc/cups/ssl';
-$FILE_CERTS{'cups'}->{'cert'} = '/etc/cups/ssl/server.crt';
-$FILE_CERTS{'cups'}->{'key'} = '/etc/cups/ssl/server.key';
-$FILE_CERTS{'cups'}->{'owner'} = 'root';
-$FILE_CERTS{'cups'}->{'group'} = 'lp';
-$FILE_CERTS{'cups'}->{'perms'} = '600';
-$FILE_CERTS{'cups'}->{'daemon'} = 'cups';
-$FILE_CERTS{'radiusd'}->{'basedir'} = '/etc/raddb/clearos-certs';
-$FILE_CERTS{'radiusd'}->{'cert'} = '/etc/raddb/clearos-certs/cert.pem';
-$FILE_CERTS{'radiusd'}->{'key'} = '/etc/raddb/clearos-certs/key.pem';
-$FILE_CERTS{'radiusd'}->{'ca'} = '/etc/raddb/clearos-certs/ca.pem';
-$FILE_CERTS{'radiusd'}->{'dh'} = '/etc/raddb/clearos-certs/dh1024.pem';
-$FILE_CERTS{'radiusd'}->{'owner'} = 'root';
-$FILE_CERTS{'radiusd'}->{'group'} = 'radiusd';
-$FILE_CERTS{'radiusd'}->{'perms'} = '640';
-$FILE_CERTS{'radiusd'}->{'daemon'} = 'radiusd';
 
 ###############################################################################
 #
@@ -245,7 +193,6 @@ CheckNetworkBakFiles();
 ReadConfig();
 GetNetworkInfo();
 GetPingServers();
-ManageSslCertificates();
 CheckClamAv();
 CheckSecurityAudit();
 
@@ -329,7 +276,6 @@ while (1) {
         CheckWhitelistConfig();
         SynchronizeTime();
         UpdateDyndns();
-        ResetSuvaDeviceName();
     }
 
     SleepHeartbeat();
@@ -409,7 +355,6 @@ sub SleepHeartbeat() {
         $g_heartbeatcount = 0;
         LogMsg("info", "system", "heartbeat...\n");
         UpdateDyndns() if ($g_dns_retry); # set when a previous dyndns update failed
-        ResetSuvaDeviceName();
     }
 }
 
@@ -1555,123 +1500,6 @@ sub GetClusterState()
 
 ###############################################################################
 #
-# ResetSuvaDeviceName
-#
-###############################################################################
-
-sub ResetSuvaDeviceName()
-{
-    if ((! -e $FILE_SUVA_OK) && (-e $CMD_SETSUVA)) {
-        system("$CMD_SETSUVA >/dev/null 2>&1");
-    }
-}
-
-###############################################################################
-#
-# RestartWebconfig
-#
-###############################################################################
-
-sub RestartWebconfig() {
-    LogMsg("info", "system", "restart webconfig\n");
-    system("/etc/rc.d/init.d/webconfig restart >/dev/null 2>&1");
-}
-
-###############################################################################
-#
-# ManageSslCertificates
-# TODO: move this to API
-#
-###############################################################################
-
-sub ManageSslCertificates() {
-    sleep 5;
-
-    if (! ((-e $BASE_CERTS{'key'}) && (-e $BASE_CERTS{'cert'})) ) {
-        LogMsg("debug", "system", "secure server certificates not yet created\n") if $config{debug};
-        return;
-    }
-
-    LogMsg("debug", "system", "checking secure server certificates and keys\n") if $config{debug};
-
-    my $certmd5 = `$CMD_MD5SUM "$BASE_CERTS{'cert'}"`;
-    my $keymd5 = `$CMD_MD5SUM "$BASE_CERTS{'key'}"`;
-    my $camd5 = `$CMD_MD5SUM "$BASE_CERTS{'ca'}"`;
-    my $dhmd5 = `$CMD_MD5SUM "$BASE_CERTS{'dh'}"`;
-    
-    $certmd5 =~ s/\s+.*//;
-    $keymd5 =~ s/\s+.*//;
-    $camd5 =~ s/\s+.*//;
-    $dhmd5 =~ s/\s+.*//;
-
-    chomp($certmd5);
-    chomp($keymd5);
-    chomp($camd5);
-    chomp($dhmd5);
-
-    my %sslmd5s;
-    $sslmd5s{'cert'} = $certmd5;
-    $sslmd5s{'key'} = $keymd5;
-    $sslmd5s{'ca'} = $camd5;
-    $sslmd5s{'dh'} = $dhmd5;
-
-    foreach my $service (keys %FILE_CERTS) {
-        my $basedir = $FILE_CERTS{$service}->{'basedir'};
-        my $owner = $FILE_CERTS{$service}->{'owner'};
-        my $group = $FILE_CERTS{$service}->{'group'};
-        my $perms = $FILE_CERTS{$service}->{'perms'};
-
-        my $key = $FILE_CERTS{$service}->{'key'};
-
-        my $restart_daemon = $STATE_DISABLED;
-        my @ssltypes = ('cert', 'key', 'ca', 'dh');
-
-        if (! -d $basedir) { 
-            LogMsg("debug", "system", "certificate base directory does not exist: $basedir\n") if $config{debug};
-            next;
-        }
-
-        foreach my $certtype (@ssltypes) {
-            if (defined($FILE_CERTS{$service}->{$certtype})) {
-                my $source = $BASE_CERTS{$certtype};
-                my $target = $FILE_CERTS{$service}->{$certtype};
-                my $md5 = `$CMD_MD5SUM "$target" 2>/dev/null`;
-
-                $md5 =~ s/\s+.*//;
-                chomp($md5);
-
-                if ($md5 eq $sslmd5s{$certtype}) {
-                    LogMsg("debug", "system", "secure server certificate is up-to-date: $target\n") if $config{debug};
-                } else {
-                    LogMsg("info", "system", "updating secure server certificate: $target\n");
-                    system("/bin/cp -a $source $target");
-                    system("/bin/chown $owner.$group $target >/dev/null 2>&1");
-                    system("/bin/chmod $perms $target >/dev/null 2>&1");
-                    $restart_daemon = $STATE_ENABLED;
-                }
-            }
-        }
-
-        # This is a bit kludgy.
-        if (defined($FILE_CERTS{$service}->{'ca_config'}) && (-e "$FILE_CERTS{$service}->{'ca_config'}")) {
-        my $cmd = "/bin/grep ^" . $FILE_CERTS{$service}->{'ca_param'} . " " . $FILE_CERTS{$service}->{'ca_config'};
-            my $ca_configured = `$cmd`;
-            if (! $ca_configured) {
-                LogMsg("info", "system", "adding secure server certificate authority for $service\n");
-                system("echo $FILE_CERTS{$service}->{'ca_param'}: /etc/ssl/ca-cert.pem >> /etc/imapd.conf");
-            }
-        }
-
-        if ($restart_daemon eq $STATE_ENABLED) {
-            LogMsg("info", "system", "resetting daemon " . $FILE_CERTS{$service}->{'daemon'} . "\n");
-            system("/sbin/service " . $FILE_CERTS{$service}->{'daemon'} . " condrestart >/dev/null 2>&1");
-        }
-    }
-}
-
-
-###############################################################################
-#
 # LogMsg: Log a message
 #
 ###############################################################################
@@ -2010,12 +1838,6 @@ sub SignalReload() {
     LogMsg("info", "system", "resetting syswatch\n");
     ReadConfig();
     GetPingServers();
-}
-
-sub SignalSystemCheck() {
-    LogMsg("info", "system", "checking system configuration\n");
-    ManageSslCertificates();
-    RestartWebconfig();
 }
 
 sub SignalNetworkChange() {
