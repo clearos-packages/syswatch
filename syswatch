@@ -32,7 +32,8 @@ $SIG{'TERM'} = 'SignalInterrupt';
 $SIG{'USR1'} = 'SignalSystemCheck';
 $SIG{'USR2'} = 'SignalNetworkChange';
 $SIG{'NUM63'} = 'SignalClusterChange';
-$SIG{'NUM61'} = 'SignalCupsWorkaround';
+$SIG{'NUM62'} = 'SignalWebconfigWorkaround';
+$SIG{'NUM61'} = 'SignalApacheWorkaround';
 $SIG{'CHLD'} = sub { wait };
 
 $ENV {'PATH'}  = '/sbin:/usr/bin:/bin';
@@ -1851,7 +1852,12 @@ sub SignalClusterChange() {
     ManageCluster();
 }
 
-sub SignalCupsWorkaround() {
-    LogMsg("info", "system", "cups startup workaround requested\n");
-    system("/sbin/service cups start");
+sub SignalApacheWorkaround() {
+    LogMsg("info", "system", "apache startup workaround requested\n");
+    system("/sbin/service httpd condrestart");
+}
+
+sub SignalWebconfigWorkaround() {
+    LogMsg("info", "system", "webconfig startup workaround requested\n");
+    system("/sbin/service webconfig condrestart");
 }
