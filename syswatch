@@ -31,7 +31,6 @@ $SIG{'INT'}  = 'SignalInterrupt';
 $SIG{'TERM'} = 'SignalInterrupt';
 $SIG{'USR1'} = 'SignalSystemCheck';
 $SIG{'USR2'} = 'SignalNetworkChange';
-$SIG{'NUM63'} = 'SignalClusterChange';
 $SIG{'NUM62'} = 'SignalWebconfigWorkaround';
 $SIG{'NUM61'} = 'SignalApacheWorkaround';
 $SIG{'CHLD'} = sub { wait };
@@ -59,19 +58,16 @@ sub SleepHeartbeat();
 sub CheckWanConnection();
 sub CheckWanNetwork();
 sub CheckIpChanges();
-sub GetClusterState();
 sub GetIp($);
 sub GetRoute($);
 sub GetNetworkInfo();
 sub GetPingServers();
-sub ManageCluster();
 sub RestartNetwork();
 sub RestartFirewall();
 sub RestartIntrusionDetection();
 sub UpdateDyndns();
 sub ValidateIp($);
 sub SynchronizeTime();
-sub SignalClusterChange();
 
 # Automagic system fixes
 sub CheckUpgrade();
@@ -79,7 +75,6 @@ sub CheckResolv(); # PPPoE ... sigh
 sub CheckWhitelistConfig();
 sub CheckNetworkConf();
 sub CheckNetworkBakFiles();
-sub CheckClamAv();
 sub CheckSecurityAudit();
 sub UpdateWhitelist();
 
@@ -102,8 +97,6 @@ my $FILE_DNS     = "/etc/resolv.conf";
 my $FILE_IDSCFG  = "/etc/snortsam.conf";
 my $FILE_IDSLIST = "system-autowhitelist.conf";
 my $FILE_STATE   = "$DIR_STATE/state";
-my $FILE_CLAMDB  = "/var/lib/clamav/*.cvd";
-my $FILE_HA      = "/var/lib/syswatch/ha";
 my $FILE_SECAUD  = "$DIR_SECAUD/aide.db";
 my $FILE_SECAUDN = "$DIR_SECAUD/aide.db.new";
 my $CMD_GETIP   = "/usr/sbin/getip";
@@ -194,7 +187,6 @@ CheckNetworkBakFiles();
 ReadConfig();
 GetNetworkInfo();
 GetPingServers();
-CheckClamAv();
 CheckSecurityAudit();
 
 ##############################################################################
@@ -373,15 +365,6 @@ sub CheckWanConnection() {
         my $gwcheck = 0;
         my $ping_server1 = $g_extifs{$extif}->{ping_server1};
         my $ping_server2 = $g_extifs{$extif}->{ping_server2};
-
-        # If we are a backup node in the cluster, bail
-        #---------------------------------------------
-
-        if ((-e $FILE_HA) && (GetClusterState() eq $STATE_BACKUP)) {
-            LogMsg("debug", $extif, "ping check - skipped for backup node in cluster\n") if $config{debug};
-            $g_extifs{$extif}->{status} = $STATUS_DOWN;
-            next;
-        }
 
         # If we don't have an IP, bail right away
         #----------------------------------------
@@ -591,14 +574,6 @@ sub RestartIntrusionDetection() {
 
 sub RestartNetwork() {
 
-    # Bail if this a backup node in a cluster
-    #----------------------------------------
-
-    if (GetClusterState() eq $STATE_BACKUP) {
-        LogMsg("info", "system", "cluster node is backup - on standby\n");
-        return;
-    }
-
     foreach my $extif (keys %g_extifs) {
 
         # Bail if network status is ok
@@ -678,14 +653,7 @@ sub RestartNetwork() {
                 system("/sbin/ifdown $extif >/dev/null 2>/dev/null");
                 system("/sbin/ifup $extif >/dev/null 2>/dev/null");
             } else {
-                # Restart network if we are a cluster
-                if (-e $FILE_HA) {
-                    LogMsg("info", $extif, "restarting static IP network\n");
-                    system("/sbin/ifdown $extif >/dev/null 2>/dev/null");
-                    system("/sbin/ifup $extif >/dev/null 2>/dev/null");
-                } else {
-                    LogMsg("info", $extif, "waiting for static IP reconnect\n");
-                }
+                LogMsg("info", $extif, "waiting for static IP reconnect\n");
             }
         } 
     }
@@ -1187,19 +1155,6 @@ sub RemoveNetworkRole($) {
 
 ###############################################################################
 #
-# CheckClamAv: Sanity checks ClamAv setup
-#
-###############################################################################
-
-sub CheckClamAv() {
-    if (-e $FILE_CLAMDB) {
-        LogMsg("info", "system", "deleting invalid antivirus database\n");
-        system("/bin/rm -f '$FILE_CLAMDB'") 
-    }
-}
-
-###############################################################################
-#
 # CheckSecurityAudit: Temporary workaround for security audit
 #
 ###############################################################################
@@ -1446,58 +1401,6 @@ sub UpdateWhitelist() {
     }
 }
 
-###############################################################################
-#
-# ManageCluster
-#
-###############################################################################
-
-sub ManageCluster()
-{
-    next if (! -e $FILE_HA);
-
-    my $state = GetClusterState();
-
-    if ($state eq $STATE_BACKUP) {
-        # TODO: add support for other network connections
-        foreach my $extif (keys %g_extifs) {
-            LogMsg("info", "system", "cluster node is backup - disabling network\n");
-            system("/sbin/ifdown $extif >/dev/null 2>/dev/null");
-        }
-    }
-}
-
-###############################################################################
-#
-# GetClusterState
-#
-###############################################################################
-
-sub GetClusterState()
-{
-    my $state = $STATE_UNKNOWN;
-
-    if (-e $FILE_HA) {
-        if (open(HA, $FILE_HA)) {
-            while(<HA>) {
-                if (/^SYSWATCH_HA=/) {
-                    $state = $_;
-                    $state =~ s/SYSWATCH_HA=//;
-                    $state =~ s/"//g;
-                    chomp($state);
-                }
-                
-            }
-        } else {
-            LogMsg("info", "system", "cluster state file is not readable\n");
-        }
-
-    }
-
-    LogMsg("debug", "system", "cluster state is $state\n") if $config{debug};
-
-    return $state;
-}
 
 ###############################################################################
 #
@@ -1845,11 +1748,6 @@ sub SignalNetworkChange() {
     LogMsg("info", "system", "restarting firewall due to network change\n");
     RestartFirewall();
     LogMsg("info", "system", "updating daemons due to network change\n");
-}
-
-sub SignalClusterChange() {
-    LogMsg("info", "system", "cluster change detected\n");
-    ManageCluster();
 }
 
 sub SignalApacheWorkaround() {
