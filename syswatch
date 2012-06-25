@@ -85,7 +85,7 @@ sub UpdateWhitelist();
 #
 ###############################################################################
 
-my $DIR_IDS      = "/etc/snort";
+my $DIR_IDS      = "/etc/snortsam.d";
 my $DIR_STATE    = "/var/lib/syswatch";
 my $DIR_SECAUD   = "/var/lib/suvlets/SecurityAudit/db";
 my $FILE_PID     = "/var/run/syswatch.pid";
