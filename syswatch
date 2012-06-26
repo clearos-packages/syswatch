@@ -1,7 +1,5 @@
 #!/usr/bin/perl
 
-# Net::Ping has issues with -T when using "syn" ("icmp" is fine)
-
 ###############################################################################
 #
 # Copyright 2000-2011 ClearFoundation
@@ -124,6 +122,9 @@ my $STATUS_CHANGED = 30;
 my $STATUS_UNCHANGED = 31;
 my $STATUS_NO = 40;
 my $STATUS_YES = 41;
+
+# Net::Ping has issues with -T (protocol) when using "syn" ("icmp" is fine)
+my $PING_PROTO = "icmp";
 
 ###############################################################################
 #
@@ -389,7 +390,7 @@ sub CheckWanConnection() {
 
         my $ping_object;
         eval { 
-            $ping_object = Net::Ping->new("syn", 5, 1, $extif);
+            $ping_object = Net::Ping->new($PING_PROTO, 5, 1, $extif);
             $ping_object->bind($g_extifs{$extif}->{ip}); 
         };
         if ($@) {
