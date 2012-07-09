@@ -125,6 +125,8 @@ my $STATUS_YES = 41;
 
 # Net::Ping has issues with -T (protocol) when using "syn" ("icmp" is fine)
 my $PING_PROTO = "icmp";
+# Binding to an interface for multiwan configurations seems to cause grief
+my $PING_BIND = 0;
 
 ###############################################################################
 #
@@ -389,8 +391,12 @@ sub CheckWanConnection() {
         #------------------------------------------------------------
 
         my $ping_object;
-        eval { 
-            $ping_object = Net::Ping->new($PING_PROTO, 5, 1, $extif);
+        eval {
+            if ($PING_BIND == 0) {
+                $ping_object = Net::Ping->new($PING_PROTO, 5, 1);
+            } else {
+                $ping_object = Net::Ping->new($PING_PROTO, 5, 1, $extif);
+            }
             $ping_object->bind($g_extifs{$extif}->{ip}); 
         };
         if ($@) {
