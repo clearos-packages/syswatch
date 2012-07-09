@@ -126,7 +126,7 @@ my $STATUS_YES = 41;
 # Net::Ping has issues with -T (protocol) when using "syn" ("icmp" is fine)
 my $PING_PROTO = "icmp";
 # Binding to an interface for multiwan configurations seems to cause grief
-my $PING_BIND = 0;
+my $PING_BIND = 1;
 
 ###############################################################################
 #
