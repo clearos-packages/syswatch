@@ -27,10 +27,7 @@ use POSIX;
 $SIG{'HUP'}  = 'SignalReload';
 $SIG{'INT'}  = 'SignalInterrupt';
 $SIG{'TERM'} = 'SignalInterrupt';
-$SIG{'USR1'} = 'SignalSystemCheck';
-$SIG{'USR2'} = 'SignalNetworkChange';
-$SIG{'NUM62'} = 'SignalWebconfigWorkaround';
-$SIG{'NUM61'} = 'SignalApacheWorkaround';
+$SIG{'USR1'} = 'SignalWebconfigWorkaround';
 $SIG{'CHLD'} = sub { wait };
 
 $ENV {'PATH'}  = '/sbin:/usr/bin:/bin';
@@ -91,7 +88,7 @@ my $FILE_LOG     = "/var/log/syswatch";
 my $FILE_CFG     = "/etc/syswatch";
 my $FILE_MULTIWAN = "/etc/clearos/multiwan.conf";
 my $FILE_NETWORK = "/etc/clearos/network.conf";
-my $FILE_DNS     = "/etc/resolv.conf";
+my $FILE_DNS     = "/etc/resolv-peerdns.conf";
 my $FILE_IDSCFG  = "/etc/snortsam.conf";
 my $FILE_IDSLIST = "system-autowhitelist.conf";
 my $FILE_STATE   = "$DIR_STATE/state";
@@ -622,7 +619,7 @@ sub RestartNetwork() {
             # luxury with multi-WAN/multi-PPPoE connections. 
             #
             # KLUDGE 2: PPPoE seems to like putting a 0.0.0.0 name server into
-            # /etc/resolv.conf sometimes.  Not good.  We have a workaround to
+            # /etc/resolv-peerdns.conf sometimes.  Not good.  We have a workaround to
             # detect this issue.
 
             LogMsg("info", $extif, "restarting PPPoE connection\n");
@@ -1211,11 +1208,11 @@ sub CheckUpgrade() {
 sub CheckResolv() {
 
     # This is a last minute hack to deal with a mysterious 
-    # "nameserver 0.0.0.0" in /etc/resolv.conf.
+    # "nameserver 0.0.0.0" in /etc/resolv-peerdns.conf.
 
     my $fixit = 0;
 
-    if (open(RESOLV, "/etc/resolv.conf")) {
+    if (open(RESOLV, "/etc/resolv-peerdns.conf")) {
         while (<RESOLV>) {
             if (/nameserver.*0\.0\.0\.0/) {
                 $fixit = 1;        
@@ -1224,10 +1221,10 @@ sub CheckResolv() {
         close(RESOLV);
 
         if ($fixit) {
-            LogMsg("info", "system", "fixing broken /etc/resolv.conf\n");
-            system("/bin/grep -v \"nameserver.*0\.0\.0\.0\" /etc/resolv.conf > /etc/resolv.conf.fixed");
-            system("/bin/mv /etc/resolv.conf.fixed /etc/resolv.conf");
-            system("/bin/rm -f /etc/resolv.conf.save") if (-e "/etc/resolv.conf.save");
+            LogMsg("info", "system", "fixing broken /etc/resolv-peerdns.conf\n");
+            system("/bin/grep -v \"nameserver.*0\.0\.0\.0\" /etc/resolv-peerdns.conf > /etc/resolv-peerdns.conf.fixed");
+            system("/bin/mv /etc/resolv-peerdns.conf.fixed /etc/resolv-peerdns.conf");
+            system("/bin/rm -f /etc/resolv-peerdns.conf.save") if (-e "/etc/resolv-peerdns.conf.save");
         }
     }
 }
@@ -1743,17 +1740,6 @@ sub SignalReload() {
     LogMsg("info", "system", "resetting syswatch\n");
     ReadConfig();
     GetPingServers();
-}
-
-sub SignalNetworkChange() {
-    LogMsg("info", "system", "restarting firewall due to network change\n");
-    RestartFirewall();
-    LogMsg("info", "system", "updating daemons due to network change\n");
-}
-
-sub SignalApacheWorkaround() {
-    LogMsg("info", "system", "apache startup workaround requested\n");
-    system("/sbin/service httpd condrestart");
 }
 
 sub SignalWebconfigWorkaround() {
