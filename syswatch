@@ -910,17 +910,12 @@ sub GetRoute($) {
     } elsif ($g_extifs{$extif}->{conntype} eq $TYPE_PPPOE) {
         $gateway = `LANG=en_US /sbin/ip addr ls $extif 2>/dev/null | /bin/grep peer | /bin/awk \'{ print \$4 }\' | /bin/sed 's/\\/.*//'`;
     } elsif ($g_extifs{$extif}->{conntype} eq $TYPE_DHCP) {
-        if (-e "/var/lib/dhclient/$extif.routers") {
-            $gateway = `/bin/cat /var/lib/dhclient/$extif.routers 2>/dev/null`;
+        $gateway = `/sbin/route -n | /usr/bin/tail -n 1 | /bin/grep $extif | /bin/awk {\'print \$2\'}`;
+        chomp($gateway);
+        if ((!$gateway) || ($gateway eq "0.0.0.0") || ($gateway eq "Gateway")) {
+            $gateway = $STATE_UNKNOWN;
         } else {
-            LogMsg("debug", $extif, "network - gateway not found in DHCP state file\n") if $config{debug};
-            $gateway = `/sbin/route -n | /usr/bin/tail -n 1 | /bin/grep $extif | /bin/awk {\'print \$2\'}`;
-            chomp($gateway);
-            if ((!$gateway) || ($gateway eq "0.0.0.0") || ($gateway eq "Gateway")) {
-                $gateway = $STATE_UNKNOWN;
-            } else {
-                LogMsg("debug", $extif, "network - gateway not found in DHCP state file\n") if $config{debug};
-            }
+            LogMsg("debug", $extif, "network - gateway not found for DHCP connection\n") if $config{debug};
         }
     } else {
         LogMsg("debug", $extif, "network - unable to lookup route\n") if $config{debug};
