@@ -62,7 +62,6 @@ sub RestartFirewall();
 sub RestartIntrusionDetection();
 sub UpdateDyndns();
 sub ValidateIp($);
-sub SynchronizeTime();
 
 # Automagic system fixes
 sub CheckUpgrade();
@@ -265,7 +264,6 @@ while (1) {
     if (($g_internet_update eq $STATE_ENABLED) && ($wan_connection != $STATUS_DOWN)) {
         $g_internet_update = $STATE_DISABLED;
         CheckWhitelistConfig();
-        SynchronizeTime();
         UpdateDyndns();
     }
 
@@ -833,24 +831,6 @@ sub UpdateDyndns() {
         LogMsg("info", "system", "DNS update will try again on next heartbeat\n");
         $g_dns_retry = 1;
     }
-}
-
-
-###############################################################################
-#
-# SynchronizeTime: Synchronize the time on the system on boot (or a syswatch restart).
-#
-###############################################################################
-
-sub SynchronizeTime() {
-    return if ($g_do_timesync == $STATUS_NO);
-
-    if (-x $CMD_TIMESYNC) {
-        LogMsg("info", "system", "synchronizing time with NTP servers\n");
-        system($CMD_TIMESYNC);
-    }
-
-    $g_do_timesync = $STATUS_NO;
 }
 
 
