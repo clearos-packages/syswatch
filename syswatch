@@ -59,7 +59,6 @@ sub GetNetworkInfo();
 sub GetPingServers();
 sub RestartNetwork();
 sub RestartFirewall();
-sub RestartIntrusionDetection();
 sub UpdateDyndns();
 sub ValidateIp($);
 
@@ -249,7 +248,6 @@ while (1) {
         GetNetworkInfo();
         GetPingServers();
         UpdateWhitelist();
-        RestartIntrusionDetection();
     }
 
 
@@ -539,31 +537,6 @@ sub RestartFirewall() {
 
 ###############################################################################
 #
-# RestartIntrusionDetection: Restart intrusion detection/prevention
-#
-# PPPOEKLUDGE: When a network interface (read: PPPoE) disappears, it will 
-# take Snort down with it.  Syswatch is responsible for restarting it.
-#
-###############################################################################
-
-sub RestartIntrusionDetection() {
-    LogMsg("info", "system", "resetting intrusion detection\n");
-
-    foreach my $extif (keys %g_extifs) {
-        if ($g_extifs{$extif}->{status} == $STATUS_OK) {
-            if (! -e "/var/run/snort_$extif.pid") {
-                LogMsg("info", "system", "enabling intrusion detection on $extif\n");
-                `/etc/rc.d/init.d/snort restart 2>/dev/null` if (-e "/etc/rc3.d/S99snort");
-                return; # No need to check other interfaces at this point
-            } else {
-                LogMsg("debug", "system", "intrusion detection enabled for $extif\n") if $config{debug};
-            }
-        }
-    }
-}
-
-###############################################################################
-#
 # RestartNetwork: Restart the Internet connection
 #
 ###############################################################################
@@ -763,7 +736,6 @@ sub CheckWanNetwork() {
                 LogMsg("warn", "system", "default route is not active... removing - $gatewaycheck\n");
                 `/sbin/ip route del default >/dev/null 2>&1`;
                 RestartFirewall();
-                RestartIntrusionDetection();
             }
         }
 
@@ -781,7 +753,6 @@ sub CheckWanNetwork() {
                 $defaultroute = $1 if ($defaultroute =~ /^(.*)$/);  # Untaint (GetRoute validates it)
                 `/sbin/ip route add default via $defaultroute`;
                 RestartFirewall();
-                RestartIntrusionDetection();
             }
         }
     }
