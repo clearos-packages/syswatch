@@ -1028,7 +1028,6 @@ sub CheckNetworkBakFiles() {
 
 sub CheckNetworkConf() {
     if (!open(NETCONF, $FILE_NETWORK)) {
-        LogMsg("warn", "system", "failed to open file $FILE_NETWORK: $!\n");
         return;
     }
 
@@ -1509,7 +1508,7 @@ sub ReadConfig() {
     my @ext_interfaces;
 
     if (! open(FILE_NETWORK, "$FILE_NETWORK")) {
-        LogMsg("warn", "config", "failed to open file $FILE_NETWORK: $!\n");
+        LogMsg("info", "config", "network configuration not available ($FILE_NETWORK)\n");
     } else {
         while (<FILE_NETWORK>) {
             if (/^EXTIF=/) {
