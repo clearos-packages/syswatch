@@ -56,6 +56,7 @@ sub CheckIpChanges();
 sub GetIp($);
 sub GetRoute($);
 sub GetNetworkInfo();
+sub GetNetworkConfig();
 sub GetPingServers();
 sub RestartNetwork();
 sub RestartFirewall();
@@ -81,6 +82,7 @@ sub UpdateWhitelist();
 my $DIR_IDS      = "/etc/snortsam.d";
 my $DIR_STATE    = "/var/lib/syswatch";
 my $DIR_SECAUD   = "/var/lib/suvlets/SecurityAudit/db";
+my $DIR_NETWORK  = "/etc/sysconfig/network-scripts";
 my $FILE_PID     = "/var/run/syswatch.pid";
 my $FILE_LOG     = "/var/log/syswatch";
 my $FILE_CFG     = "/etc/syswatch";
@@ -178,11 +180,12 @@ my $g_do_timesync = $STATUS_YES; # Should be local static variable
 LogMsg("info", "system", "syswatch started\n");
 Daemonize();
 CheckUpgrade();
-CheckNetworkConf();
 CheckNetworkBakFiles();
 ReadConfig();
+GetNetworkConfig();
 GetNetworkInfo();
 GetPingServers();
+CheckNetworkConf();
 CheckSecurityAudit();
 
 ##############################################################################
@@ -245,6 +248,7 @@ while (1) {
     if ( ($wan_ip_state == $STATUS_CHANGED) || ($wan_network_state == $STATUS_CHANGED)) {
         $g_internet_update = $STATE_ENABLED;
         RestartFirewall();
+        GetNetworkConfig();
         GetNetworkInfo();
         GetPingServers();
         UpdateWhitelist();
@@ -617,7 +621,7 @@ sub RestartNetwork() {
         #---------------------
     
         } elsif ($g_extifs{$extif}->{conntype} eq $TYPE_STATIC) {
-            if (defined($g_extifs{$extif}->{is_wifi}) && ($g_extifs{$extif}->{is_wifi} == $STATUS_YES)) {
+            if (defined($g_extifs{$extif}->{is_wifi}) && ($g_extifs{$extif}->{is_wifi} eq $STATE_ENABLED)) {
                 LogMsg("info", $extif, "restarting static wireless connection\n");
                 system("/sbin/ifdown $extif >/dev/null 2>/dev/null");
                 system("/sbin/ifup $extif >/dev/null 2>/dev/null");
@@ -857,7 +861,7 @@ sub GetRoute($) {
     if ($g_extifs{$extif}->{ip} eq $STATE_UNKNOWN) {
         $gateway = $STATE_UNKNOWN;   # No IP ... don't bother looking for the gateway
     } elsif ($g_extifs{$extif}->{conntype} eq $TYPE_STATIC) {
-        $gateway = `/bin/grep "^GATEWAY=" /etc/sysconfig/network-scripts/ifcfg-$extif | /bin/sed 's/.*=//' | /bin/sed 's/"//g'`;
+        $gateway = $g_extifs{$extif}->{gateway};
     } elsif ($g_extifs{$extif}->{conntype} eq $TYPE_PPPOE) {
         $gateway = `LANG=en_US /sbin/ip addr ls $extif 2>/dev/null | /bin/grep peer | /bin/awk \'{ print \$4 }\' | /bin/sed 's/\\/.*//'`;
     } elsif ($g_extifs{$extif}->{conntype} eq $TYPE_DHCP) {
@@ -1049,18 +1053,12 @@ sub CheckNetworkConf() {
 
     foreach my $configuredif (@interfacesraw) {
         LogMsg("debug", "system", "checking interface role - $configuredif\n") if $config{debug};
-        if ($configuredif =~ /^([a-z0-9\.]+)$/) {
-            $configuredif = $1; # Untainted
-
-            if (!(-e "/etc/sysconfig/network-scripts/ifcfg-$configuredif")) {
-                LogMsg("info", "system", "network configuration has undefined interface - $configuredif\n");
-                RemoveNetworkRole($configuredif);
-            } else {
-                my $onboot = `/bin/grep ONBOOT.*no* /etc/sysconfig/network-scripts/ifcfg-$configuredif`;
-                if ($onboot) {
-                    LogMsg("info", "system", "network configuration has inactive interface - $configuredif\n");
-                }
-            }
+        if (!defined($g_extifs{$configuredif}->{config})) {
+            LogMsg("info", "system", "network configuration has undefined interface - $configuredif\n");
+            RemoveNetworkRole($configuredif);
+            # TODO: reload network configuration or remove from g_extifs
+        } elsif (defined($g_extifs{$configuredif}->{onboot}) && ($g_extifs{$configuredif}->{onboot} eq $STATE_DISABLED)) {
+            LogMsg("info", "system", "network configuration has inactive interface - $configuredif\n");
         }
     }
 }
@@ -1364,6 +1362,100 @@ sub LogMsg($$$) {
 
 ##############################################################################
 #
+# GetNetworkConfig: Grab network interface configuration
+#
+##############################################################################
+
+sub GetNetworkConfig()  {
+    my $log_it = $config{debug};
+    my $log_level = "debug";
+
+    if ($g_first_time == $STATUS_YES) {
+        $log_level = "info";
+        $log_it = 1;
+    }
+
+    LogMsg("info", $log_level, "loading network configuration\n") if $log_it;
+
+    if (!opendir(DIR_NETWORK, "$DIR_NETWORK")) {
+        LogMsg("warn", $log_level, "loading network configuration failed $DIR_NETWORK\n") if $log_it;
+        return;
+    }
+
+    my @raw_list = readdir(DIR_NETWORK);
+    closedir(DIR_NETWORK);
+
+    # First run: look for DEVICE= parameter
+    #--------------------------------------
+
+    foreach my $eth_file (@raw_list) {
+        next if (!($eth_file =~ /^ifcfg-/));
+        next if ($eth_file =~ /^ifcfg-lo/);
+
+        my $extif = $eth_file;
+        $extif =~ s/ifcfg-//;
+
+        if (open(ETH_FILE, "$DIR_NETWORK/$eth_file")) {
+            while (<ETH_FILE>) {
+                if (/^DEVICE=/) {
+                    ($extif) = /^DEVICE=(.*)/; 
+                }
+            }
+
+            close(ETH_FILE);
+        }
+
+        if (defined($g_extifs{$extif})) {
+            $g_extifs{$extif}->{config} = $eth_file;
+        }
+    }
+
+    # Second run: load configuration
+    #--------------------------------
+
+    foreach my $extif (keys %g_extifs) {
+
+        if (open(ETH_FILE, "$DIR_NETWORK/" . $g_extifs{$extif}->{config})) {
+            # defaults
+            $g_extifs{$extif}->{conntype} = $TYPE_STATIC;
+            $g_extifs{$extif}->{is_wifi} = $STATE_DISABLED;
+            $g_extifs{$extif}->{onboot} = $STATE_DISABLED;
+
+            while (<ETH_FILE>) {
+                if (/^GATEWAY=/) {
+                    my ($gateway) = /^GATEWAY=(.*)/; 
+                    $gateway =~ s/\"//g; 
+                    $g_extifs{$extif}->{gateway} = $gateway;
+                } elsif (/^PPPOE_TIMEOUT/) {
+                    $g_extifs{$extif}->{conntype} = $TYPE_PPPOE;
+                } elsif (/^BOOTPROTO=.*dhcp/i) {
+                    $g_extifs{$extif}->{conntype} = $TYPE_DHCP;
+                } elsif (/^ESSID=/i) {
+                    $g_extifs{$extif}->{is_wifi} = $STATE_ENABLED;
+                } elsif (/^ONBOOT=.*yes/i) {
+                    $g_extifs{$extif}->{onboot} = $STATE_ENABLED;
+                }
+            }
+
+            close(ETH_FILE);
+        }
+    }
+
+    foreach my $extif (keys %g_extifs) {
+        LogMsg("info", $log_level, "network configuration for $extif -  config: " . $g_extifs{$extif}->{config} . "\n") if $log_it;;
+        LogMsg("info", $log_level, "network configuration for $extif -  onboot: " . $g_extifs{$extif}->{onboot} . "\n") if $log_it;;
+        LogMsg("info", $log_level, "network configuration for $extif -    type: " . $g_extifs{$extif}->{conntype} . "\n") if $log_it;;
+        LogMsg("info", $log_level, "network configuration for $extif -    wifi: " . $g_extifs{$extif}->{is_wifi} . "\n") if $log_it;;
+
+        if (defined($g_extifs{$extif}->{gateway})) {
+            LogMsg("info", $log_level, "network configuration for $extif - gateway: " . $g_extifs{$extif}->{gateway} . "\n") if $log_it;;
+        }
+    }
+}
+
+
+##############################################################################
+#
 # GetNetworkInfo: Grab interface definitions
 # 
 # g_extif
@@ -1395,29 +1487,6 @@ sub GetNetworkInfo()  {
             LogMsg($log_level, $extif, "network - ok\n") if $log_it;
             next;
         }
-
-        # Determine connection type
-        #--------------------------
-
-        my $conntype = $TYPE_STATIC;
-
-        $g_extifs{$extif}->{is_wifi} = $STATUS_NO;
-
-        if ($extif =~ /^ppp/) {
-            $conntype = $TYPE_PPPOE;
-        } elsif (open(ETH, "/etc/sysconfig/network-scripts/ifcfg-$extif")) {
-            while (<ETH>) {
-                if (/^bootproto=.*dhcp/i) { $conntype = $TYPE_DHCP; }
-                if (/^essid=/i) {
-                    LogMsg($log_level, $extif, "network - interface is wireless\n") if $log_it;
-                    $g_extifs{$extif}->{is_wifi} = $STATUS_YES;
-                }
-            }
-            close(ETH);
-        }
-
-        $g_extifs{$extif}->{conntype} = $conntype;
-        LogMsg($log_level, $extif, "network - interface type - $conntype\n") if $log_it;
 
         # Grab IP information (if available)
         #-----------------------------------
@@ -1634,7 +1703,7 @@ sub ReadConfig() {
 
     LogMsg("info", "config", "number of external networks - $numwans\n");
     foreach my $extif (keys %g_extifs) {
-        if (defined($g_extifs{$extif}->{backup}) && ($g_extifs{$extif}->{backup} eq  $STATE_ENABLED)) {
+        if (defined($g_extifs{$extif}->{backup}) && ($g_extifs{$extif}->{backup} eq $STATE_ENABLED)) {
             LogMsg("info", "config", "monitoring external network (backup only) - $extif\n");
         } else {
             LogMsg("info", "config", "monitoring external network - $extif\n");
