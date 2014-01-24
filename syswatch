@@ -1055,14 +1055,14 @@ sub CheckNetworkConf() {
         LogMsg("debug", "system", "checking interface role - $configuredif\n") if $config{debug};
         if (!defined($g_extifs{$configuredif}->{config})) {
             LogMsg("info", "system", "network configuration has undefined interface - $configuredif\n");
-            RemoveNetworkRole($configuredif);
-            # TODO: reload network configuration or remove from g_extifs
+            # RemoveNetworkRole($configuredif);
         } elsif (defined($g_extifs{$configuredif}->{onboot}) && ($g_extifs{$configuredif}->{onboot} eq $STATE_DISABLED)) {
             LogMsg("info", "system", "network configuration has inactive interface - $configuredif\n");
         }
     }
 }
 
+# TODO: this is no longer used... at least for now.  Remove at some point.
 sub RemoveNetworkRole($) {
     my $interface = $_[0];
 
