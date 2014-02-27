@@ -1054,12 +1054,13 @@ sub CheckNetworkConf() {
 
     close(NETCONF);
 
+
     foreach my $configuredif (@interfacesraw) {
         LogMsg("debug", "system", "checking interface role - $configuredif\n") if $config{debug};
-        if (!defined($g_extifs{$configuredif}->{config})) {
-            LogMsg("info", "system", "network configuration has undefined interface - $configuredif\n");
+        if (!defined($g_extifs{$configuredif}) || !defined($g_extifs{$configuredif}->{config})) {
+            LogMsg("debug", "system", "network configuration has undefined interface - $configuredif\n") if $config{debug};
             # RemoveNetworkRole($configuredif);
-        } elsif (defined($g_extifs{$configuredif}->{onboot}) && ($g_extifs{$configuredif}->{onboot} eq $STATE_DISABLED)) {
+        } elsif (defined($g_extifs{$configuredif}) && defined($g_extifs{$configuredif}->{onboot}) && ($g_extifs{$configuredif}->{onboot} eq $STATE_DISABLED)) {
             LogMsg("info", "system", "network configuration has inactive interface - $configuredif\n");
         }
     }
