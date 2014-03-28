@@ -53,7 +53,7 @@ sub SleepHeartbeat();
 sub CheckWanConnection();
 sub CheckWanNetwork();
 sub CheckIpChanges();
-sub GetIp($);
+sub GetIp($$);
 sub GetRoute($);
 sub GetNetworkInfo();
 sub GetNetworkConfig();
@@ -894,8 +894,9 @@ sub GetRoute($) {
 #
 ###############################################################################
 
-sub GetIp($) {
+sub GetIp($$) {
     my $extif = $_[0];
+    my $type = $_[1];
     my $ip = $STATE_UNKNOWN;
 
 	# Use IP referrer if appropriate
@@ -916,18 +917,20 @@ sub GetIp($) {
 			LogMsg("debug", $extif, "detected IP address was not found\n") if $config{debug};
 		}
 
-    # Use ifconfig information to detect IP information
-    #--------------------------------------------------
+    # Use ip addr information to detect IP information
+    #-------------------------------------------------
 
     } else {
-        my $ifconfig = `LANG=en_US /sbin/ifconfig 2>/dev/null | /bin/grep -A1 ^$extif`;
+        my $ip_addr = `LANG=en_US /sbin/ip addr show dev $extif label $extif scope global 2>/dev/null`;
+        my $match = ($type eq "IPv4") ? "inet" : "inet6";
 
-        if ($ifconfig) {
-            my @lines = split(/\n/, $ifconfig);
-            $ip = $lines[1];
-            $ip =~ s/^[^:]+:\s*//;
-            $ip =~ s/\s+.*//;
-            $ip =~ s/\s//g;
+        if ($ip_addr) {
+            my @lines = split(/\n/, $ip_addr);
+            foreach my $line (@lines) {
+                if ($line =~ /\s*$match\s+([^\s\/]*)/) {
+                    $ip = $1;
+                }
+            }
         }
     }
 
@@ -974,7 +977,8 @@ sub CheckIpChanges() {
             }
         }
 
-        my $ip = GetIp($extif);
+        my $ip = GetIp($extif, 'IPv4');
+        my $ip_v6 = GetIp($extif, 'IPv6');
         my $oldip;
     
         if (open(DIR_STATE, "$DIR_STATE/$extif")) {
@@ -1053,7 +1057,6 @@ sub CheckNetworkConf() {
     }
 
     close(NETCONF);
-
 
     foreach my $configuredif (@interfacesraw) {
         LogMsg("debug", "system", "checking interface role - $configuredif\n") if $config{debug};
@@ -1495,9 +1498,14 @@ sub GetNetworkInfo()  {
         # Grab IP information (if available)
         #-----------------------------------
 
-        my $ip = GetIp($extif);
+        my $ip = GetIp($extif, 'IPv4');
+        my $ipv6 = GetIp($extif, 'IPv6');
         $g_extifs{$extif}->{ip} = $ip;
+        $g_extifs{$extif}->{ipv6} = $ipv6;
         LogMsg($log_level, $extif, "network - IP address - $ip\n") if $log_it;
+        if ($ipv6 ne $STATE_UNKNOWN) {
+            LogMsg($log_level, $extif, "network - IPv6 address - $ipv6\n") if $log_it
+        }
 
         # Grab gateway information (if available)
         #----------------------------------------
@@ -1727,13 +1735,21 @@ sub ValidateIp($) {
 
     return $STATUS_BORKED if (!$ip);
 
-    my (@parts) = split(/\./, $ip);
+    # IPv4 check
+    if ($ip =~ /\./) {
+        my (@parts) = split(/\./, $ip);
 
-    return $STATUS_BORKED if ($#parts != 3);
+        return $STATUS_BORKED if ($#parts != 3);
 
-    foreach my $part (@parts) {
-        return $STATUS_BORKED if ($part =~ /\D/);
-        return $STATUS_BORKED if (($part > 255) || ($part < 0));
+        foreach my $part (@parts) {
+            return $STATUS_BORKED if ($part =~ /\D/);
+            return $STATUS_BORKED if (($part > 255) || ($part < 0));
+        }
+    # IPv6 check
+    } elsif ($ip =~ /\:/) {
+        return $STATUS_BORKED if (!($ip =~ /^[0-9A-Fa-f:]+$/));
+    } else {
+        return $STATUS_BORKED;
     }
 
     return $STATUS_OK;
