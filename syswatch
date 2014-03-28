@@ -868,7 +868,7 @@ sub GetRoute($) {
     } elsif ($g_extifs{$extif}->{conntype} eq $TYPE_PPPOE) {
         $gateway = `LANG=en_US /sbin/ip addr ls $extif 2>/dev/null | /bin/grep peer | /bin/awk \'{ print \$4 }\' | /bin/sed 's/\\/.*//'`;
     } elsif ($g_extifs{$extif}->{conntype} eq $TYPE_DHCP) {
-        $gateway = `/sbin/route -n | /usr/bin/tail -n 1 | /bin/grep $extif | /bin/awk {\'print \$2\'}`;
+        $gateway = `/sbin/route -n | /bin/grep "^0.0.0.0[[:space:]]" | /bin/grep $extif | /bin/awk {\'print \$2\'}`;
         chomp($gateway);
         if ((!$gateway) || ($gateway eq "0.0.0.0") || ($gateway eq "Gateway")) {
             $gateway = $STATE_UNKNOWN;
