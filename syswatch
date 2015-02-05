@@ -148,8 +148,8 @@ $config{is_multiwan} = $STATE_DISABLED;
 # FIXME: Alternate ping servers are hard-coded IPs.  We cannot use hostname
 # since we want to avoid inevitable DNS issues.  However, the hard-coded IP
 # addresses here should be replaced by some kind of update when connected.
-$config{ping_server1_default} = "69.90.141.72";
-$config{ping_server2_default} = "67.18.166.2";
+$config{ping_server1_default} = "8.8.8.8";
+$config{ping_server2_default} = "75.125.207.194";
 
 # Real globals
 #--------------
@@ -834,15 +834,8 @@ sub GetPingServers() {
             $g_extifs{$extif}->{ping_server2} = $config{ping_server2_default}; 
         } else {
             LogMsg("debug", $extif, "ping server automatically detected\n") if $config{debug};
-            my $defaultroute = GetRoute($extif);
-            if ($defaultroute eq $STATE_UNKNOWN) {
-                LogMsg("warn", $extif, "no default gateway found\n");
-                $g_extifs{$extif}->{ping_server1} = $config{ping_server1_default} 
-            } else {
-                $g_extifs{$extif}->{ping_server1} = $defaultroute;
-            }
-
-            $g_extifs{$extif}->{ping_server2} = $config{ping_server1_default};
+            $g_extifs{$extif}->{ping_server1} = $config{ping_server1_default};
+            $g_extifs{$extif}->{ping_server2} = $config{ping_server2_default};
         }
 
         LogMsg("debug", $extif, "ping server #1 - " . $g_extifs{$extif}->{ping_server1} . "\n") if $config{debug};
@@ -1411,6 +1404,7 @@ sub GetNetworkConfig()  {
             while (<ETH_FILE>) {
                 if (/^DEVICE=/) {
                     ($extif) = /^DEVICE=(.*)/; 
+                    $extif =~ s/\"//g;
                 }
             }
 
