@@ -148,8 +148,8 @@ $config{is_multiwan} = $STATE_DISABLED;
 # FIXME: Alternate ping servers are hard-coded IPs.  We cannot use hostname
 # since we want to avoid inevitable DNS issues.  However, the hard-coded IP
 # addresses here should be replaced by some kind of update when connected.
-$config{ping_server1_default} = "69.90.141.72";
-$config{ping_server2_default} = "67.18.166.2";
+$config{ping_server1_default} = "8.8.8.8";
+$config{ping_server2_default} = "54.152.208.245";
 
 # Real globals
 #--------------
