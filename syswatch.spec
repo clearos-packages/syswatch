@@ -65,6 +65,9 @@ rm -rf $RPM_BUILD_ROOT
 /var/lib/syswatch
 
 %changelog
+* Wed May 20 2015 ClearFoundation <developer@clearfoundation.com> - 7.0.1-1
+- Updated for SDN AWS changes
+
 * Thu Feb 05 2015 ClearFoundation <developer@clearfoundation.com> - 7.0.0-1
 - Updated for SDN changes
 
