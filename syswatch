@@ -1320,10 +1320,10 @@ sub UpdateWhitelist() {
         my @lines = split(/\n/, $ifconfig);
         print WHITELIST "# System IP addresses\n";
         foreach my $line (@lines) {
-            next if (!($line =~ /inet addr:/));
-            next if ($line =~ /inet addr:.*127.0.0.1/);
+            next if (!($line =~ /inet \d+/));
+            next if ($line =~ /inet 127.0.0.1/);
 
-            $line =~ s/^[^:]+:\s*//;
+            $line =~ s/^\s*inet\s*//;
             $line =~ s/\s+.*//;
             $line =~ s/\s//g;
             print WHITELIST "dontblock $line\n";
