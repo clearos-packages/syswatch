@@ -106,7 +106,7 @@ my $STATE_DISABLED = "disabled";
 my $STATE_UNKNOWN = "unknown";
 my $STATE_STARTUP = "startup";
 my $STATE_ACTIVE = "active";
-my $STATE_BACKUP = "backup";
+my $STATE_STANDBY = "standby";
 my $TYPE_STATIC = "static";
 my $TYPE_PPPOE = "pppoe";
 my $TYPE_DHCP = "dhcp";
@@ -1601,10 +1601,11 @@ sub ReadConfig() {
         close(FILE_NETWORK);
     }
 
-    # Multi-WAN backup interfaces
-    #----------------------------
+    # Multi-WAN backup and standy interfaces
+    #---------------------------------------
 
     my @backup_interfaces;
+    my @standby_interfaces;
 
     if (! open(FILE_MULTIWAN, "$FILE_MULTIWAN")) {
         LogMsg("debug", "config", "failed to open file $FILE_MULTIWAN: $!\n") if $config{debug};
@@ -1615,6 +1616,11 @@ sub ReadConfig() {
                 s/.*=//;
                 chomp();
                 @backup_interfaces = split;
+            } elsif (/^EXTIF_STANDBY=/) {
+                s/"//g;
+                s/.*=//;
+                chomp();
+                @standby_interfaces = split;
             }
         }
         close(FILE_MULTIWAN);
@@ -1637,7 +1643,9 @@ sub ReadConfig() {
             LogMsg("warn", "config", "invalid WAN interface - $extif\n");
         } else {
             $extif = $1; # Untainted
-            $g_extifs{$extif}->{init} = "true";
+            if (!($extif ~~ @standby_interfaces)) {
+                $g_extifs{$extif}->{init} = "true";
+            }
         }
     }
 
@@ -1719,6 +1727,12 @@ sub ReadConfig() {
         } else {
             LogMsg("info", "config", "monitoring external network - $extif\n");
         }
+    }
+
+    my $numstandby = @standby_interfaces;
+    LogMsg("info", "config", "number of standby networks - $numstandby\n");
+    foreach my $standbyif (@standby_interfaces) {
+        LogMsg("info", "config", "standby network - $standbyif\n");
     }
 }
 
