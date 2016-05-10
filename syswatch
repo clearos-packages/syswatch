@@ -601,7 +601,7 @@ sub RestartNetwork() {
             system("/sbin/ifdown $extif >/dev/null 2>&1");
             sleep 5;
 
-            my $locked_on_dev = `/bin/ps axwww | /bin/grep $extif | /bin/grep -v grep | /bin/awk '{ print \$1 }'`;
+            my $locked_on_dev = `/bin/ps axwww | /bin/grep "pppoe.*$extif" | /bin/grep -v grep | /bin/awk '{ print \$1 }'`;
 
             if ($locked_on_dev) {
                 LogMsg("info", $extif, "Old PPPoE connection locked $extif\n");
