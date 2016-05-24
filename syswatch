@@ -387,7 +387,7 @@ sub CheckWanConnection() {
 
         my $ping_object;
         eval {
-            $ping_object = Net::Ping->new($PING_PROTO, 5, 1, $extif);
+            $ping_object = Net::Ping->new($PING_PROTO, 5, 64, $extif);
             $ping_object->bind($g_extifs{$extif}->{ip}); 
         };
         if ($@) {
