@@ -95,7 +95,7 @@ my $FILE_STATE   = "$DIR_STATE/state";
 my $FILE_SECAUD  = "$DIR_SECAUD/aide.db";
 my $FILE_SECAUDN = "$DIR_SECAUD/aide.db.new";
 my $CMD_GETIP   = "/usr/sbin/getip";
-my $CMD_IDS      = "/etc/rc.d/init.d/snortsam condrestart >/dev/null 2>&1";
+my $CMD_IDS      = "/sbin/service snortsam condrestart >/dev/null 2>&1";
 my $CMD_MD5SUM   = "/usr/bin/md5sum";
 my $CMD_DYNDNS   = "/usr/sbin/dnsupdate";
 my $CMD_VPNUPDATE = "/usr/sbin/vpnupdate";
@@ -536,7 +536,7 @@ sub CheckWanConnection() {
 
 sub RestartFirewall() {
     LogMsg("info", "system", "restarting firewall\n");
-    `/etc/rc.d/init.d/firewall restart 2>/dev/null`; 
+    system("/sbin/service firewall restart 2>/dev/null");
 }
 
 ###############################################################################
