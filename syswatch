@@ -385,10 +385,20 @@ sub CheckWanConnection() {
         # Initialize ping request, bail if we can't bind to interface
         #------------------------------------------------------------
 
-        my $ping_object;
+        my $ping_object_1;
+        my $ping_object_64;
         eval {
-            $ping_object = Net::Ping->new($PING_PROTO, 5, 64, $extif);
-            $ping_object->bind($g_extifs{$extif}->{ip}); 
+            $ping_object_1 = Net::Ping->new($PING_PROTO, 5, 1, $extif);
+            $ping_object_1->bind($g_extifs{$extif}->{ip});
+        };
+        if ($@) {
+            LogMsg("warn", $extif, "network interface disappeared - " . $g_extifs{$extif}->{ip} . "\n");
+            $g_extifs{$extif}->{status} = $STATUS_DOWN;
+            next;
+        }
+        eval {
+            $ping_object_64 = Net::Ping->new($PING_PROTO, 5, 64, $extif);
+            $ping_object_64->bind($g_extifs{$extif}->{ip});
         };
         if ($@) {
             LogMsg("warn", $extif, "network interface disappeared - " . $g_extifs{$extif}->{ip} . "\n");
@@ -429,7 +439,11 @@ sub CheckWanConnection() {
 
         if (($g_extifs{$extif}->{status} != $STATUS_OK) && ($config{try_pinging_gateway} == $STATUS_YES)) {
             LogMsg("debug", $extif, "ping check on gateway - " . $g_extifs{$extif}->{gateway} . "\n") if $config{debug};
-            $gwcheck = $ping_object->ping($g_extifs{$extif}->{gateway}, 2);
+            $gwcheck = $ping_object_1->ping($g_extifs{$extif}->{gateway}, 2);
+            if ($gwcheck == 0) {
+                $gwcheck = $ping_object_64->ping($g_extifs{$extif}->{gateway}, 2);
+            }
+
             if ($gwcheck == 0) {
                 LogMsg("info", $extif, "ping check on gateway failed - " . $g_extifs{$extif}->{gateway} . "\n");
             } else {
@@ -443,13 +457,20 @@ sub CheckWanConnection() {
         LogMsg("debug", $extif, "ping check started - " . $ping_server1 . "\n") if $config{debug};
 
         my $check = 0;
-        eval { $check = $ping_object->ping($ping_server1, 2); };
+        eval { $check = $ping_object_1->ping($ping_server1, 2); };
+        if ($check == 0) {
+            LogMsg("debug", $extif, "ping check on server #1 failed - " . $ping_server1 . " (ping size: 1)\n");
+            eval { $check = $ping_object_64->ping($ping_server1, 2); };
+        }
     
         if ($check == 0) {
             LogMsg("info", $extif, "ping check on server #1 failed - " . $ping_server1 . "\n");
             sleep 3;
             $g_extifs{$extif}->{downcount1}++;
-            eval { $check = $ping_object->ping($ping_server2, 2); };
+            eval { $check = $ping_object_1->ping($ping_server2, 2); };
+            if ($check == 0) {
+                eval { $check = $ping_object_64->ping($ping_server2, 2); };
+            }
 
             if ($check == 0) {
                 $g_extifs{$extif}->{downcount2} = 0 if (! defined($g_extifs{$extif}->{downcount2}));
@@ -498,7 +519,8 @@ sub CheckWanConnection() {
             $g_extifs{$extif}->{status} = $STATUS_OK;
         }
 
-        $ping_object->close();
+        $ping_object_1->close();
+        $ping_object_64->close();
     }
 
     # Log connection summary
