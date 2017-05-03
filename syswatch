@@ -1426,7 +1426,7 @@ sub GetNetworkConfig()  {
             while (<ETH_FILE>) {
                 if (/^DEVICE=/) {
                     ($extif) = /^DEVICE=(.*)/; 
-                    $extif =~ s/\"//g;
+                    $extif =~ s/[\"\']//g;
                 }
             }
 
@@ -1452,7 +1452,7 @@ sub GetNetworkConfig()  {
             while (<ETH_FILE>) {
                 if (/^GATEWAY=/) {
                     my ($gateway) = /^GATEWAY=(.*)/; 
-                    $gateway =~ s/\"//g; 
+                    $gateway =~ s/[\"\']//g;
                     $g_extifs{$extif}->{gateway} = $gateway;
                 } elsif (/^PPPOE_TIMEOUT/) {
                     $g_extifs{$extif}->{conntype} = $TYPE_PPPOE;
