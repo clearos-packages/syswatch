@@ -1,5 +1,5 @@
 Name: syswatch
-Version: 7.1.4
+Version: 7.1.5
 Release: 1%{dist}
 Summary: Network and system monitor module
 License: GPL
