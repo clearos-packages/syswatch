@@ -1,5 +1,5 @@
 Name: syswatch
-Version: 7.1.3
+Version: 7.1.4
 Release: 1%{dist}
 Summary: Network and system monitor module
 License: GPL
@@ -63,13 +63,3 @@ rm -rf $RPM_BUILD_ROOT
 /etc/rc.d/init.d/syswatch
 /usr/sbin/syswatch
 /var/lib/syswatch
-
-%changelog
-* Wed May 20 2015 ClearFoundation <developer@clearfoundation.com> - 7.0.1-1
-- Updated for SDN AWS changes
-
-* Thu Feb 05 2015 ClearFoundation <developer@clearfoundation.com> - 7.0.0-1
-- Updated for SDN changes
-
-* Fri Jan 27 2012 ClearFoundation <developer@clearfoundation.com> - 6.2.1-1
-- Started changelog
