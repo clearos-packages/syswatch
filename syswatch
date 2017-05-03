@@ -949,6 +949,7 @@ sub GetIp($$) {
             foreach my $line (@lines) {
                 if ($line =~ /\s*$match\s+([^\s\/]*)/) {
                     $ip = $1;
+                    last;
                 }
             }
         }
