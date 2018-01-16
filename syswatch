@@ -80,7 +80,7 @@ sub UpdateWhitelist();
 my $DIR_IDS      = "/etc/snortsam.d";
 my $DIR_STATE    = "/var/lib/syswatch";
 my $DIR_NETWORK  = "/etc/sysconfig/network-scripts";
-my $FILE_PID     = "/var/run/syswatch.pid";
+my $FILE_PID     = "/var/run/syswatch/syswatch.pid";
 my $FILE_LOG     = "/var/log/syswatch";
 my $FILE_CFG     = "/etc/syswatch";
 my $FILE_MULTIWAN = "/etc/clearos/multiwan.conf";

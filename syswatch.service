@@ -1,0 +1,12 @@
+[Unit]
+Description=System Watch Daemon
+After=syslog.target network-online.target
+
+[Service]
+Type=forking
+PIDFile=/var/run/syswatch/syswatch.pid
+ExecStart=/usr/sbin/syswatch
+Restart=on-abort
+
+[Install]
+WantedBy=multi-user.target

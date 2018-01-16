@@ -1,5 +1,5 @@
 Name: syswatch
-Version: 7.1.5
+Version: 7.4.0
 Release: 1%{dist}
 Summary: Network and system monitor module
 License: GPL
@@ -8,6 +8,11 @@ Source: %{name}-%{version}.tar.gz
 Vendor: ClearFoundation
 Packager: ClearFoundation
 Requires: perl
+Requires: systemd
+Requires(post): systemd
+Requires(preun): systemd
+Requires(postun): systemd
+BuildRequires: systemd
 BuildArch: noarch
 BuildRoot: %_tmppath/%name-%version-buildroot
 
@@ -21,35 +26,33 @@ Network and system monitor module
 %install
 [ "$RPM_BUILD_ROOT" != "/" ] && rm -rf $RPM_BUILD_ROOT
 
-mkdir -p -m 755 $RPM_BUILD_ROOT/etc/rc.d/init.d
+
+mkdir -p -m 755 $RPM_BUILD_ROOT%{_unitdir}
+mkdir -p -m 755 $RPM_BUILD_ROOT%{_tmpfilesdir}
 mkdir -p -m 755 $RPM_BUILD_ROOT/etc/logrotate.d
 mkdir -p -m 755 $RPM_BUILD_ROOT/usr/sbin
 mkdir -p -m 755 $RPM_BUILD_ROOT/var/lib/syswatch
 
 install -m 644 syswatch.conf $RPM_BUILD_ROOT/etc/syswatch
 install -m 644 syswatch.logrotate $RPM_BUILD_ROOT/etc/logrotate.d/syswatch
-install -m 755 syswatch.init $RPM_BUILD_ROOT/etc/rc.d/init.d/syswatch
 install -m 755 syswatch $RPM_BUILD_ROOT/usr/sbin/
+install -m 644 syswatch.service %{buildroot}%{_unitdir}/syswatch.service
+install -m 644 syswatch-tmpfiles.conf %{buildroot}/%{_tmpfilesdir}/syswatch.conf
 
 %post
-if ( [ $1 == 1 ] && [ ! -e /etc/system/pre5x ] ); then
-	/sbin/chkconfig --add syswatch
-fi
+%systemd_post syswatch.service
+
+systemctl enable syswatch.service >/dev/null 2>&1
 
 exit 0
 
 %preun
-if [ $1 = 0 ]; then
-	service syswatch stop >/dev/null 2>&1
-	chkconfig --del syswatch
-fi
+%systemd_preun syswatch.service
 
 exit 0
 
 %postun
-if [ $1 == 1 ]; then
-	service syswatch condrestart >/dev/null 2>&1
-fi
+%systemd_postun_with_restart syswatch.service
 
 exit 0
 
@@ -59,7 +62,7 @@ rm -rf $RPM_BUILD_ROOT
 %files
 %defattr(-,root,root)
 %config(noreplace) /etc/syswatch
+%{_unitdir}/syswatch.service
 /etc/logrotate.d/syswatch
-/etc/rc.d/init.d/syswatch
 /usr/sbin/syswatch
 /var/lib/syswatch
