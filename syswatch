@@ -69,7 +69,6 @@ sub CheckResolv(); # PPPoE ... sigh
 sub CheckWhitelistConfig();
 sub CheckNetworkConf();
 sub CheckNetworkBakFiles();
-sub CheckSecurityAudit();
 sub UpdateWhitelist();
 
 
@@ -91,9 +90,6 @@ my $FILE_NETWORK = "/etc/clearos/network.conf";
 my $FILE_DNS     = "/etc/resolv-peerdns.conf";
 my $FILE_IDSCFG  = "/etc/snortsam.conf";
 my $FILE_IDSLIST = "system-autowhitelist.conf";
-my $FILE_STATE   = "$DIR_STATE/state";
-my $FILE_SECAUD  = "$DIR_SECAUD/aide.db";
-my $FILE_SECAUDN = "$DIR_SECAUD/aide.db.new";
 my $CMD_GETIP   = "/usr/sbin/getip";
 my $CMD_IDS      = "/sbin/service snortsam condrestart >/dev/null 2>&1";
 my $CMD_MD5SUM   = "/usr/bin/md5sum";
@@ -186,7 +182,6 @@ GetNetworkConfig();
 GetNetworkInfo();
 GetPingServers();
 CheckNetworkConf();
-CheckSecurityAudit();
 
 ##############################################################################
 #
@@ -1121,33 +1116,6 @@ sub RemoveNetworkRole($) {
     system("/bin/mv $FILE_NETWORK.new $FILE_NETWORK");
 }
 
-
-###############################################################################
-#
-# CheckSecurityAudit: Temporary workaround for security audit
-#
-###############################################################################
-
-sub CheckSecurityAudit() {
-    if (-d $DIR_SECAUD) {
-        if ((! -e $FILE_SECAUD) || (-z $FILE_SECAUD)) {
-            LogMsg("info", "system", "updating security audit database\n");
-            system("echo \"\@\@begin_db\" > $FILE_SECAUD");
-            system("echo \"\@\@db_spec name lname attr perm uid gid size mtime ctime inode lcount md5 sha1\" >> $FILE_SECAUD");
-            system("echo \"\@\@end_db\" >> $FILE_SECAUD");
-            system("/bin/chmod 660 $FILE_SECAUD");
-            system("/bin/chown root:suva $FILE_SECAUD");
-        }
-
-        if (! -e $FILE_SECAUDN) {
-            LogMsg("info", "system", "initializing security audit database\n");
-            system("/bin/touch $FILE_SECAUDN");
-        }
-
-        system("/bin/chmod 660 $FILE_SECAUDN");
-        system("/bin/chown root:suva $FILE_SECAUDN");
-    }
-}
 
 ###############################################################################
 #
