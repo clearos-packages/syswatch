@@ -32,6 +32,7 @@ mkdir -p -m 755 $RPM_BUILD_ROOT%{_tmpfilesdir}
 mkdir -p -m 755 $RPM_BUILD_ROOT/etc/logrotate.d
 mkdir -p -m 755 $RPM_BUILD_ROOT/usr/sbin
 mkdir -p -m 755 $RPM_BUILD_ROOT/var/lib/syswatch
+mkdir -p -m 755 $RPM_BUILD_ROOT/var/run/syswatch
 
 install -m 644 syswatch.conf $RPM_BUILD_ROOT/etc/syswatch
 install -m 644 syswatch.logrotate $RPM_BUILD_ROOT/etc/logrotate.d/syswatch
@@ -63,6 +64,8 @@ rm -rf $RPM_BUILD_ROOT
 %defattr(-,root,root)
 %config(noreplace) /etc/syswatch
 %{_unitdir}/syswatch.service
+%{_tmpfilesdir}/syswatch.conf
 /etc/logrotate.d/syswatch
 /usr/sbin/syswatch
 /var/lib/syswatch
+/var/run/syswatch

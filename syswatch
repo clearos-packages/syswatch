@@ -88,6 +88,7 @@ my $FILE_NETWORK = "/etc/clearos/network.conf";
 my $FILE_DNS     = "/etc/resolv-peerdns.conf";
 my $FILE_IDSCFG  = "/etc/snortsam.conf";
 my $FILE_IDSLIST = "system-autowhitelist.conf";
+my $FILE_STATE   = "$DIR_STATE/state";
 my $CMD_GETIP   = "/usr/sbin/getip";
 my $CMD_IDS      = "/sbin/service snortsam condrestart >/dev/null 2>&1";
 my $CMD_MD5SUM   = "/usr/bin/md5sum";
