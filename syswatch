@@ -68,7 +68,6 @@ sub CheckUpgrade();
 sub CheckResolv(); # PPPoE ... sigh
 sub CheckWhitelistConfig();
 sub CheckNetworkConf();
-sub CheckNetworkBakFiles();
 sub UpdateWhitelist();
 
 
@@ -80,7 +79,6 @@ sub UpdateWhitelist();
 
 my $DIR_IDS      = "/etc/snortsam.d";
 my $DIR_STATE    = "/var/lib/syswatch";
-my $DIR_SECAUD   = "/var/lib/suvlets/SecurityAudit/db";
 my $DIR_NETWORK  = "/etc/sysconfig/network-scripts";
 my $FILE_PID     = "/var/run/syswatch.pid";
 my $FILE_LOG     = "/var/log/syswatch";
@@ -176,7 +174,6 @@ my $g_do_timesync = $STATUS_YES; # Should be local static variable
 LogMsg("info", "system", "syswatch started\n");
 Daemonize();
 CheckUpgrade();
-CheckNetworkBakFiles();
 ReadConfig();
 GetNetworkConfig();
 GetNetworkInfo();
@@ -1029,22 +1026,6 @@ sub CheckIpChanges() {
     }
 
     return $isnew;
-}
-
-###############################################################################
-#
-# CheckNetworkBakFiles: Removes annoying .bak network configuration files
-#
-###############################################################################
-
-sub CheckNetworkBakFiles() {
-    my @ifaces = ('eth0', 'eth1');
-    foreach my $iface (@ifaces) {
-        if (-e "/etc/sysconfig/network-scripts/ifcfg-$iface.bak") {
-            LogMsg("info", "system", "removing system generated backup file ifcfg-$iface.bak\n");
-            system("/bin/rm -f /etc/sysconfig/network-scripts/ifcfg-$iface.bak") 
-        }
-    }
 }
 
 ###############################################################################
